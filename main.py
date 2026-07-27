@@ -1,8 +1,8 @@
 import pygame
+import random
 
 from settings import *
 from planet import Planet
-
 
 pygame.init()
 
@@ -24,8 +24,19 @@ while running:
     clock.tick(FPS)
 
     for event in pygame.event.get():
+
         if event.type == pygame.QUIT:
             running = False
+
+        if event.type == pygame.MOUSEBUTTONDOWN:
+
+            x, y = pygame.mouse.get_pos()
+
+            radius = random.randint(10, 35)
+
+            new_planet = Planet(x, y, radius, WHITE)
+
+            planets.append(new_planet)
 
     screen.fill(BLACK)
 
