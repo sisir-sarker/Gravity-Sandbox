@@ -36,11 +36,15 @@ while running:
 
             new_planet = Planet(x, y, radius, WHITE)
 
+            new_planet.vx = 2
+            new_planet.vy = 1
+
             planets.append(new_planet)
 
     screen.fill(BLACK)
 
     for planet in planets:
+        planet.move()
         planet.draw(screen)
 
     pygame.display.flip()
