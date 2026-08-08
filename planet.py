@@ -1,11 +1,18 @@
 import pygame
 
-from settings import WIDTH, HEIGHT, DT
+from settings import WIDTH, HEIGHT, DT, WHITE
 
 
 class Planet:
 
-    def __init__(self, x, y, radius, color, fixed=False):
+    def __init__(
+        self,
+        x,
+        y,
+        radius,
+        color,
+        fixed=False
+    ):
 
         self.x = x
         self.y = y
@@ -13,104 +20,128 @@ class Planet:
         self.radius = radius
         self.color = color
 
-        self.vx = 0
-        self.vy = 0
+        self.vx = 0.0
+        self.vy = 0.0
 
-        # Bigger planets become much heavier
+        # Mass depends on radius
         self.mass = radius ** 2
 
+        # Fixed objects do not move
         self.fixed = fixed
 
-        # Orbit Trail
+        # Trail
         self.trail = []
 
-    # ----------------------------
-    # Movement
-    # ----------------------------
+    # ===================================
+    # Move Planet
+    # ===================================
+
     def move(self):
 
         if self.fixed:
             return
 
-        # Save Trail
-        self.trail.append((self.x, self.y))
+        # Save trail position
+        self.trail.append(
+            (self.x, self.y)
+        )
 
-        if len(self.trail) > 80:
+        # Limit trail length
+        if len(self.trail) > 120:
             self.trail.pop(0)
 
-        # Position Update
+        # Update position
         self.x += self.vx * DT
         self.y += self.vy * DT
 
-        # ----------------------------
-        # Screen Boundary
-        # ----------------------------
+        # ===================================
+        # Boundary Bounce
+        # ===================================
 
         if self.x - self.radius <= 0:
+
             self.x = self.radius
             self.vx *= -0.9
 
-        if self.x + self.radius >= WIDTH:
+        elif self.x + self.radius >= WIDTH:
+
             self.x = WIDTH - self.radius
             self.vx *= -0.9
 
         if self.y - self.radius <= 0:
+
             self.y = self.radius
             self.vy *= -0.9
 
-        if self.y + self.radius >= HEIGHT:
+        elif self.y + self.radius >= HEIGHT:
+
             self.y = HEIGHT - self.radius
             self.vy *= -0.9
 
-    # ----------------------------
+    # ===================================
     # Draw
-    # ----------------------------
+    # ===================================
+
     def draw(self, screen):
 
-        # ---------- Trail ----------
-        for i, pos in enumerate(self.trail):
+        # =================================
+        # Draw Trail
+        # =================================
 
-            size = max(1, i // 25 + 1)
+        for position in self.trail:
 
             pygame.draw.circle(
                 screen,
-                (90, 90, 90),
-                (int(pos[0]), int(pos[1])),
-                size
+                (70, 70, 70),
+                (
+                    int(position[0]),
+                    int(position[1])
+                ),
+                1
             )
 
-        # ---------- Sun Glow ----------
+        # =================================
+        # Draw Sun Glow
+        # =================================
+
         if self.fixed:
 
             pygame.draw.circle(
                 screen,
-                (255, 170, 0),
-                (int(self.x), int(self.y)),
-                self.radius + 12,
+                (255, 180, 0),
+                (
+                    int(self.x),
+                    int(self.y)
+                ),
+                self.radius + 10,
                 2
             )
 
-            pygame.draw.circle(
-                screen,
-                (255, 210, 0),
-                (int(self.x), int(self.y)),
-                self.radius + 6,
-                2
-            )
+        # =================================
+        # Draw Planet
+        # =================================
 
-        # ---------- Planet ----------
         pygame.draw.circle(
             screen,
             self.color,
-            (int(self.x), int(self.y)),
+            (
+                int(self.x),
+                int(self.y)
+            ),
             self.radius
         )
 
-        # ---------- Outline ----------
+        # =================================
+        # Draw Outline
+        # =================================
+
         pygame.draw.circle(
             screen,
-            (255, 255, 255),
-            (int(self.x), int(self.y)),
+            WHITE,
+            (
+                int(self.x),
+                int(self.y)
+            ),
             self.radius,
             1
         )
