@@ -1,13 +1,20 @@
 import math
 
-from settings import G, SOFTENING, DT
+from settings import (
+    G,
+    SOFTENING,
+    DT
+)
 
 
 # =======================================
 # Distance
 # =======================================
 
-def calculate_distance(planet1, planet2):
+def calculate_distance(
+    planet1,
+    planet2
+):
 
     dx = planet2.x - planet1.x
     dy = planet2.y - planet1.y
@@ -39,31 +46,37 @@ def calculate_orbital_velocity(
         return 0.0, 0.0
 
     # -----------------------------------
-    # Gravity with softening
+    # Softened circular orbit
     #
-    # a = GM / (r^2 + s^2)
+    # a = GM*r / (r²+s²)^(3/2)
     #
-    # For circular orbit:
-    #
-    # v^2 / r = GM / (r^2 + s^2)
+    # v²/r = a
     #
     # Therefore:
     #
-    # v = sqrt(GM*r / (r^2+s^2))
+    # v = sqrt(
+    # GM*r² /
+    # (r²+s²)^(3/2)
+    # )
     # -----------------------------------
 
-    speed = math.sqrt(
-        (
-            G *
-            sun.mass *
-            radius
-        )
+    denominator = (
+        radius * radius
+        +
+        SOFTENING * SOFTENING
+    ) ** 1.5
+
+    speed_squared = (
+        G
+        * sun.mass
+        * radius
+        * radius
         /
-        (
-            radius * radius
-            +
-            SOFTENING * SOFTENING
-        )
+        denominator
+    )
+
+    speed = math.sqrt(
+        speed_squared
     )
 
     # -----------------------------------
@@ -73,89 +86,223 @@ def calculate_orbital_velocity(
     tangent_x = -dy / radius
     tangent_y = dx / radius
 
-    vx = tangent_x * speed
-    vy = tangent_y * speed
-
-    return vx, vy
+    return (
+        tangent_x * speed,
+        tangent_y * speed
+    )
 
 
 # =======================================
-# Gravity Between Two Planets
+# Calculate All Accelerations
 # =======================================
 
-def apply_gravity_pair(
-    planet1,
-    planet2
+def calculate_accelerations(
+    planets
 ):
 
-    dx = planet2.x - planet1.x
-    dy = planet2.y - planet1.y
+    accelerations = []
 
-    distance_squared = (
-        dx * dx +
-        dy * dy +
-        SOFTENING * SOFTENING
-    )
+    # One acceleration pair for every planet
+    for planet in planets:
 
-    distance = math.sqrt(
-        distance_squared
-    )
+        accelerations.append(
+            [0.0, 0.0]
+        )
 
-    if distance == 0:
+    # ===================================
+    # Pair-wise Gravity
+    # ===================================
+
+    for i in range(
+        len(planets)
+    ):
+
+        for j in range(
+            i + 1,
+            len(planets)
+        ):
+
+            planet1 = planets[i]
+            planet2 = planets[j]
+
+            dx = (
+                planet2.x
+                -
+                planet1.x
+            )
+
+            dy = (
+                planet2.y
+                -
+                planet1.y
+            )
+
+            distance_squared = (
+                dx * dx
+                +
+                dy * dy
+                +
+                SOFTENING * SOFTENING
+            )
+
+            if distance_squared <= 0:
+                continue
+
+            distance = math.sqrt(
+                distance_squared
+            )
+
+            # --------------------------------
+            # Common gravity factor
+            # --------------------------------
+
+            factor = (
+                G
+                /
+                (
+                    distance_squared
+                    * distance
+                )
+            )
+
+            # --------------------------------
+            # Planet 1 acceleration
+            # --------------------------------
+
+            if not planet1.fixed:
+
+                acceleration1 = (
+                    factor
+                    *
+                    planet2.mass
+                )
+
+                accelerations[i][0] += (
+                    acceleration1
+                    * dx
+                )
+
+                accelerations[i][1] += (
+                    acceleration1
+                    * dy
+                )
+
+            # --------------------------------
+            # Planet 2 acceleration
+            # --------------------------------
+
+            if not planet2.fixed:
+
+                acceleration2 = (
+                    factor
+                    *
+                    planet1.mass
+                )
+
+                accelerations[j][0] -= (
+                    acceleration2
+                    * dx
+                )
+
+                accelerations[j][1] -= (
+                    acceleration2
+                    * dy
+                )
+
+    return accelerations
+
+
+# =======================================
+# Stable Physics Step
+# =======================================
+
+def physics_step(
+    planets
+):
+
+    if not planets:
         return
 
-    # Unit direction
-    nx = dx / distance
-    ny = dy / distance
+    # -----------------------------------
+    # First acceleration
+    # -----------------------------------
 
-    # ===================================
-    # Planet 1 Acceleration
-    # ===================================
+    accelerations_before = (
+        calculate_accelerations(
+            planets
+        )
+    )
 
-    if not planet1.fixed:
+    # -----------------------------------
+    # Half velocity update
+    # -----------------------------------
 
-        acceleration1 = (
-            G *
-            planet2.mass
-            /
-            distance_squared
+    for i, planet in enumerate(
+        planets
+    ):
+
+        if planet.fixed:
+            continue
+
+        ax, ay = (
+            accelerations_before[i]
         )
 
-        planet1.vx += (
-            acceleration1 *
-            nx *
-            DT
+        planet.vx += (
+            ax
+            * DT
+            * 0.5
         )
 
-        planet1.vy += (
-            acceleration1 *
-            ny *
-            DT
+        planet.vy += (
+            ay
+            * DT
+            * 0.5
         )
 
-    # ===================================
-    # Planet 2 Acceleration
-    # ===================================
+    # -----------------------------------
+    # Position update
+    # -----------------------------------
 
-    if not planet2.fixed:
+    for planet in planets:
 
-        acceleration2 = (
-            G *
-            planet1.mass
-            /
-            distance_squared
+        planet.move()
+
+    # -----------------------------------
+    # New acceleration after movement
+    # -----------------------------------
+
+    accelerations_after = (
+        calculate_accelerations(
+            planets
+        )
+    )
+
+    # -----------------------------------
+    # Second half velocity update
+    # -----------------------------------
+
+    for i, planet in enumerate(
+        planets
+    ):
+
+        if planet.fixed:
+            continue
+
+        ax, ay = (
+            accelerations_after[i]
         )
 
-        planet2.vx -= (
-            acceleration2 *
-            nx *
-            DT
+        planet.vx += (
+            ax
+            * DT
+            * 0.5
         )
 
-        planet2.vy -= (
-            acceleration2 *
-            ny *
-            DT
+        planet.vy += (
+            ay
+            * DT
+            * 0.5
         )
 
 
@@ -168,8 +315,17 @@ def check_collision(
     planet2
 ):
 
-    dx = planet2.x - planet1.x
-    dy = planet2.y - planet1.y
+    dx = (
+        planet2.x
+        -
+        planet1.x
+    )
+
+    dy = (
+        planet2.y
+        -
+        planet1.y
+    )
 
     distance = math.sqrt(
         dx * dx +
@@ -177,7 +333,8 @@ def check_collision(
     )
 
     return distance <= (
-        planet1.radius +
+        planet1.radius
+        +
         planet2.radius
     )
 
@@ -195,10 +352,49 @@ def resolve_collision(
         planet1,
         planet2
     ):
-        return
+        return None
 
-    dx = planet2.x - planet1.x
-    dy = planet2.y - planet1.y
+    # ===================================
+    # Sun Collision
+    # ===================================
+
+    # Planet hitting Sun is absorbed.
+    # It does NOT bounce.
+
+    if planet1.fixed and not planet2.fixed:
+
+        return planet2
+
+    if planet2.fixed and not planet1.fixed:
+
+        return planet1
+
+    # ===================================
+    # Fixed-Fixed
+    # ===================================
+
+    if (
+        planet1.fixed
+        and
+        planet2.fixed
+    ):
+        return None
+
+    # ===================================
+    # Planet-Planet Collision
+    # ===================================
+
+    dx = (
+        planet2.x
+        -
+        planet1.x
+    )
+
+    dy = (
+        planet2.y
+        -
+        planet1.y
+    )
 
     distance = math.sqrt(
         dx * dx +
@@ -206,91 +402,95 @@ def resolve_collision(
     )
 
     if distance == 0:
-
         distance = 0.1
 
-    # Unit normal
     nx = dx / distance
     ny = dy / distance
 
-    # ===================================
-    # Remove Overlap
-    # ===================================
+    # -----------------------------------
+    # Remove overlap
+    # -----------------------------------
 
     overlap = (
-        planet1.radius +
-        planet2.radius -
+        planet1.radius
+        +
+        planet2.radius
+        -
         distance
     )
 
     if overlap > 0:
 
-        if planet1.fixed:
+        planet1.x -= (
+            nx
+            * overlap
+            * 0.5
+        )
 
-            planet2.x += nx * overlap
-            planet2.y += ny * overlap
+        planet1.y -= (
+            ny
+            * overlap
+            * 0.5
+        )
 
-        elif planet2.fixed:
+        planet2.x += (
+            nx
+            * overlap
+            * 0.5
+        )
 
-            planet1.x -= nx * overlap
-            planet1.y -= ny * overlap
+        planet2.y += (
+            ny
+            * overlap
+            * 0.5
+        )
 
-        else:
-
-            planet1.x -= nx * overlap / 2
-            planet1.y -= ny * overlap / 2
-
-            planet2.x += nx * overlap / 2
-            planet2.y += ny * overlap / 2
-
-    # ===================================
-    # Relative Velocity
-    # ===================================
+    # -----------------------------------
+    # Relative velocity
+    # -----------------------------------
 
     relative_vx = (
-        planet2.vx -
+        planet2.vx
+        -
         planet1.vx
     )
 
     relative_vy = (
-        planet2.vy -
+        planet2.vy
+        -
         planet1.vy
     )
 
     velocity_along_normal = (
-        relative_vx * nx +
+        relative_vx * nx
+        +
         relative_vy * ny
     )
 
     # Already moving apart
     if velocity_along_normal > 0:
-        return
 
-    # ===================================
+        return None
+
+    # -----------------------------------
     # Bounce
-    # ===================================
+    # -----------------------------------
 
     restitution = 0.9
 
     inverse_mass1 = (
-        0
-        if planet1.fixed
-        else 1 / planet1.mass
+        1 / planet1.mass
     )
 
     inverse_mass2 = (
-        0
-        if planet2.fixed
-        else 1 / planet2.mass
+        1 / planet2.mass
     )
 
     total_inverse_mass = (
-        inverse_mass1 +
+        inverse_mass1
+        +
         inverse_mass2
     )
-
-    if total_inverse_mass == 0:
-        return
 
     impulse = (
         -(1 + restitution)
@@ -303,26 +503,28 @@ def resolve_collision(
     impulse_x = impulse * nx
     impulse_y = impulse * ny
 
-    if not planet1.fixed:
+    planet1.vx -= (
+        impulse_x
+        *
+        inverse_mass1
+    )
 
-        planet1.vx -= (
-            impulse_x *
-            inverse_mass1
-        )
+    planet1.vy -= (
+        impulse_y
+        *
+        inverse_mass1
+    )
 
-        planet1.vy -= (
-            impulse_y *
-            inverse_mass1
-        )
+    planet2.vx += (
+        impulse_x
+        *
+        inverse_mass2
+    )
 
-    if not planet2.fixed:
+    planet2.vy += (
+        impulse_y
+        *
+        inverse_mass2
+    )
 
-        planet2.vx += (
-            impulse_x *
-            inverse_mass2
-        )
-
-        planet2.vy += (
-            impulse_y *
-            inverse_mass2
-        )
+    return None

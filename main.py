@@ -6,8 +6,7 @@ from settings import *
 from planet import Planet
 
 from physics import (
-    apply_gravity_pair,
-    resolve_collision,
+    physics_step,
     calculate_orbital_velocity
 )
 
@@ -81,24 +80,22 @@ def find_sun(planets):
 
 
 # =======================================
-# Create Earth Orbit
+# Create Initial Planets
 # =======================================
 
 def create_initial_planets():
 
     sun = create_sun()
 
-    # Distance from Sun
     orbit_radius = 250
 
     earth = Planet(
-        WIDTH // 2 + orbit_radius,
-        HEIGHT // 2,
+        sun.x + orbit_radius,
+        sun.y,
         15,
         BLUE
     )
 
-    # Calculate circular orbital velocity
     earth.vx, earth.vy = (
         calculate_orbital_velocity(
             earth,
@@ -123,8 +120,8 @@ def create_orbit_demo():
     orbit_radius = 250
 
     earth = Planet(
-        WIDTH // 2 + orbit_radius,
-        HEIGHT // 2,
+        sun.x + orbit_radius,
+        sun.y,
         15,
         BLUE
     )
@@ -146,15 +143,11 @@ def create_orbit_demo():
 # Create Random Orbital Planet
 # =======================================
 
-def create_random_planet(
-    x,
-    y,
-    sun
-):
+def create_random_planet(x, y, sun):
 
     radius = random.randint(
-        10,
-        22
+        8,
+        16
     )
 
     planet = Planet(
@@ -173,13 +166,13 @@ def create_random_planet(
     if sun is None:
 
         planet.vx = random.uniform(
-            -30,
-            30
+            -20,
+            20
         )
 
         planet.vy = random.uniform(
-            -30,
-            30
+            -20,
+            20
         )
 
         return planet
@@ -196,29 +189,46 @@ def create_random_planet(
         dy * dy
     )
 
+    # ===================================
+    # Minimum Safe Distance
+    # ===================================
+
     minimum_distance = (
         sun.radius +
         radius +
-        30
+        60
     )
 
     # ===================================
     # Too Close To Sun
     # ===================================
 
-    if distance <= minimum_distance:
+    if distance < minimum_distance:
+
+        if distance > 0:
+
+            direction_x = dx / distance
+            direction_y = dy / distance
+
+        else:
+
+            direction_x = 1.0
+            direction_y = 0.0
 
         planet.x = (
             sun.x +
+            direction_x *
             minimum_distance
         )
 
-        planet.y = sun.y
-
-        distance = minimum_distance
+        planet.y = (
+            sun.y +
+            direction_y *
+            minimum_distance
+        )
 
     # ===================================
-    # Orbital Velocity
+    # Calculate Orbital Velocity
     # ===================================
 
     planet.vx, planet.vy = (
@@ -229,6 +239,84 @@ def create_random_planet(
     )
 
     return planet
+
+
+# =======================================
+# Prevent Planet Overlap
+# =======================================
+
+def prevent_planet_overlap(planets):
+
+    for i in range(len(planets)):
+
+        for j in range(
+            i + 1,
+            len(planets)
+        ):
+
+            planet1 = planets[i]
+            planet2 = planets[j]
+
+            # Ignore Sun
+            if (
+                planet1.fixed
+                or
+                planet2.fixed
+            ):
+                continue
+
+            dx = planet2.x - planet1.x
+            dy = planet2.y - planet1.y
+
+            distance = math.sqrt(
+                dx * dx +
+                dy * dy
+            )
+
+            minimum_distance = (
+                planet1.radius +
+                planet2.radius +
+                10
+            )
+
+            # Prevent overlap
+            if (
+                distance > 0
+                and
+                distance < minimum_distance
+            ):
+
+                nx = dx / distance
+                ny = dy / distance
+
+                push_distance = (
+                    minimum_distance -
+                    distance
+                )
+
+                planet1.x -= (
+                    nx *
+                    push_distance *
+                    0.5
+                )
+
+                planet1.y -= (
+                    ny *
+                    push_distance *
+                    0.5
+                )
+
+                planet2.x += (
+                    nx *
+                    push_distance *
+                    0.5
+                )
+
+                planet2.y += (
+                    ny *
+                    push_distance *
+                    0.5
+                )
 
 
 # =======================================
@@ -268,7 +356,7 @@ while running:
         # Keyboard
         # --------------------------------
 
-        if event.type == pygame.KEYDOWN:
+        elif event.type == pygame.KEYDOWN:
 
             # Pause / Resume
             if event.key == pygame.K_SPACE:
@@ -298,9 +386,8 @@ while running:
         # Mouse
         # --------------------------------
 
-        if (
-            event.type ==
-            pygame.MOUSEBUTTONDOWN
+        elif (
+            event.type == pygame.MOUSEBUTTONDOWN
             and not paused
         ):
 
@@ -308,12 +395,10 @@ while running:
 
             sun = find_sun(planets)
 
-            new_planet = (
-                create_random_planet(
-                    x,
-                    y,
-                    sun
-                )
+            new_planet = create_random_planet(
+                x,
+                y,
+                sun
             )
 
             planets.append(
@@ -330,45 +415,31 @@ while running:
         # Gravity
         # --------------------------------
 
-        for i in range(
-            len(planets)
-        ):
-
-            for j in range(
-                i + 1,
-                len(planets)
-            ):
-
-                apply_gravity_pair(
-                    planets[i],
-                    planets[j]
-                )
+        physics_step(
+            planets
+        )
 
         # --------------------------------
-        # Collision
+        # Prevent Planet-Planet Overlap
         # --------------------------------
 
-        for i in range(
-            len(planets)
-        ):
-
-            for j in range(
-                i + 1,
-                len(planets)
-            ):
-
-                resolve_collision(
-                    planets[i],
-                    planets[j]
-                )
+        prevent_planet_overlap(
+            planets
+        )
 
         # --------------------------------
-        # Movement
+        # Remove Escaped Planets
         # --------------------------------
 
-        for planet in planets:
-
-            planet.move()
+        planets = [
+            planet
+            for planet in planets
+            if (
+                planet.fixed
+                or
+                not planet.is_outside_screen()
+            )
+        ]
 
     # ===================================
     # Drawing
@@ -382,7 +453,7 @@ while running:
         planet.draw(screen)
 
     # ===================================
-    # Information
+    # FPS
     # ===================================
 
     fps_text = font.render(
@@ -396,6 +467,10 @@ while running:
         (10, 10)
     )
 
+    # ===================================
+    # Planet Count
+    # ===================================
+
     planet_text = font.render(
         f"Planets: {len(planets)}",
         True,
@@ -406,6 +481,10 @@ while running:
         planet_text,
         (10, 40)
     )
+
+    # ===================================
+    # Status
+    # ===================================
 
     status = (
         "PAUSED"
@@ -430,7 +509,8 @@ while running:
     # ===================================
 
     controls_text = font.render(
-        "SPACE: Pause | R: Reset | O: Orbit | C: Clear | Mouse: Planet",
+        "SPACE: Pause | R: Reset | "
+        "O: Orbit | C: Clear | Mouse: Planet",
         True,
         WHITE
     )
@@ -458,15 +538,14 @@ while running:
         screen.blit(
             pause_text,
             (
-                WIDTH // 2
-                -
+                WIDTH // 2 -
                 pause_text.get_width() // 2,
                 40
             )
         )
 
     # ===================================
-    # Update Screen
+    # Update Display
     # ===================================
 
     pygame.display.flip()

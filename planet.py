@@ -1,6 +1,12 @@
 import pygame
 
-from settings import WIDTH, HEIGHT, DT, WHITE
+from settings import (
+    WIDTH,
+    HEIGHT,
+    DT,
+    WHITE,
+    SUN_MASS_MULTIPLIER
+)
 
 
 class Planet:
@@ -14,8 +20,8 @@ class Planet:
         fixed=False
     ):
 
-        self.x = x
-        self.y = y
+        self.x = float(x)
+        self.y = float(y)
 
         self.radius = radius
         self.color = color
@@ -23,18 +29,27 @@ class Planet:
         self.vx = 0.0
         self.vy = 0.0
 
-        # Mass depends on radius
+        # -----------------------------------
+        # Mass
+        # -----------------------------------
+
         self.mass = radius ** 2
 
-        # Fixed objects do not move
+        # Sun is much more massive.
+        if fixed:
+            self.mass *= SUN_MASS_MULTIPLIER
+
         self.fixed = fixed
 
+        # -----------------------------------
         # Trail
+        # -----------------------------------
+
         self.trail = []
 
-    # ===================================
+    # =======================================
     # Move Planet
-    # ===================================
+    # =======================================
 
     def move(self):
 
@@ -47,46 +62,37 @@ class Planet:
         )
 
         # Limit trail length
-        if len(self.trail) > 120:
+        if len(self.trail) > 150:
             self.trail.pop(0)
 
-        # Update position
+        # Position update
         self.x += self.vx * DT
         self.y += self.vy * DT
 
-        # ===================================
-        # Boundary Bounce
-        # ===================================
+    # =======================================
+    # Check Outside Screen
+    # =======================================
 
-        if self.x - self.radius <= 0:
+    def is_outside_screen(self):
 
-            self.x = self.radius
-            self.vx *= -0.9
+        margin = self.radius + 50
 
-        elif self.x + self.radius >= WIDTH:
+        return (
+            self.x < -margin
+            or self.x > WIDTH + margin
+            or self.y < -margin
+            or self.y > HEIGHT + margin
+        )
 
-            self.x = WIDTH - self.radius
-            self.vx *= -0.9
-
-        if self.y - self.radius <= 0:
-
-            self.y = self.radius
-            self.vy *= -0.9
-
-        elif self.y + self.radius >= HEIGHT:
-
-            self.y = HEIGHT - self.radius
-            self.vy *= -0.9
-
-    # ===================================
+    # =======================================
     # Draw
-    # ===================================
+    # =======================================
 
     def draw(self, screen):
 
-        # =================================
-        # Draw Trail
-        # =================================
+        # -----------------------------------
+        # Trail
+        # -----------------------------------
 
         for position in self.trail:
 
@@ -100,9 +106,9 @@ class Planet:
                 1
             )
 
-        # =================================
-        # Draw Sun Glow
-        # =================================
+        # -----------------------------------
+        # Sun Glow
+        # -----------------------------------
 
         if self.fixed:
 
@@ -117,9 +123,9 @@ class Planet:
                 2
             )
 
-        # =================================
-        # Draw Planet
-        # =================================
+        # -----------------------------------
+        # Planet
+        # -----------------------------------
 
         pygame.draw.circle(
             screen,
@@ -131,9 +137,9 @@ class Planet:
             self.radius
         )
 
-        # =================================
-        # Draw Outline
-        # =================================
+        # -----------------------------------
+        # Outline
+        # -----------------------------------
 
         pygame.draw.circle(
             screen,

@@ -11,17 +11,23 @@ FPS = 60
 
 DT = 1 / FPS
 
-
 # =======================================
 # Physics Settings
 # =======================================
 
-G = 1200
+# Gravitational constant used by
+# our simulation.
+G = 20
 
+# Prevents extreme gravity at very
+# small distances.
 SOFTENING = 20
 
 TIME_SCALE = 1.0
 
+# Make the Sun much more massive
+# than normal planets.
+SUN_MASS_MULTIPLIER = 50
 
 # =======================================
 # Colors
