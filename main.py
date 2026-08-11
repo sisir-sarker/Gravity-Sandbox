@@ -83,7 +83,8 @@ def bounded_launch_velocity(sun, position, requested_velocity):
 def main():
     pygame.init()
     fullscreen = START_FULLSCREEN
-    display_flags = pygame.FULLSCREEN | pygame.SCALED if fullscreen else 0
+    # ``SCALED`` causes a broken second fullscreen toggle on some macOS builds.
+    display_flags = pygame.FULLSCREEN if fullscreen else pygame.RESIZABLE
     screen = pygame.display.set_mode((WIDTH, HEIGHT), display_flags)
     pygame.display.set_caption(TITLE)
     clock = pygame.time.Clock()
@@ -109,7 +110,7 @@ def main():
                     speed_multiplier = max(0.125, speed_multiplier / 2)
                 elif event.key == pygame.K_f:
                     fullscreen = not fullscreen
-                    display_flags = pygame.FULLSCREEN | pygame.SCALED if fullscreen else 0
+                    display_flags = pygame.FULLSCREEN if fullscreen else pygame.RESIZABLE
                     screen = pygame.display.set_mode((WIDTH, HEIGHT), display_flags)
                 elif event.key == pygame.K_r:
                     planets = initial_planets()
