@@ -13,13 +13,14 @@ from settings import HEIGHT, SUN_CORE, WHITE, WIDTH
 class Planet:
     """A circular body represented in simulation coordinates (pixels)."""
 
-    def __init__(self, x, y, radius, color, velocity=(0, 0), fixed=False):
+    def __init__(self, x, y, radius, color, velocity=(0, 0), fixed=False, name=None):
         self.position = pygame.Vector2(x, y)
         self.velocity = pygame.Vector2(velocity)
         self.radius = radius
         self.mass = float(radius**2)
         self.color = color
         self.fixed = fixed
+        self.name = name
         self.trail = deque(maxlen=240)
         # Each body is rendered from stable, individual surface particles.
         generator = random.Random(f"{x:.1f}:{y:.1f}:{radius}:{color}")
@@ -32,6 +33,7 @@ class Planet:
             brightness = generator.uniform(0.58, 1.12)
             dot_radius = 2 if fixed else 1
             self.surface_particles.append((offset, brightness, dot_radius))
+        self.initial_particle_count = len(self.surface_particles)
 
     def update_trail(self):
         self.trail.append(self.position.copy())
@@ -44,7 +46,22 @@ class Planet:
             or self.position.y > HEIGHT + margin
         )
 
-    def draw(self, surface):
+    def absorb_impact(self, projectile):
+        """Remove an impact-sized section of a fixed particle body."""
+        if not self.fixed or not self.surface_particles:
+            return
+        mass_ratio = projectile.mass / self.mass
+        damage = min(0.60, 0.035 + mass_ratio * 1.20 + projectile.velocity.length() / 3000)
+        removed_count = max(1, int(len(self.surface_particles) * damage))
+        impact_point = (projectile.position - self.position).normalize() * self.radius
+        self.surface_particles.sort(key=lambda particle: particle[0].distance_to(impact_point))
+        del self.surface_particles[:removed_count]
+
+        remaining_ratio = len(self.surface_particles) / self.initial_particle_count
+        self.mass = max(1.0, self.mass * remaining_ratio)
+        self.radius = max(12, int(self.radius * (0.82 + 0.18 * remaining_ratio)))
+
+    def draw(self, surface, font=None):
         if len(self.trail) > 1:
             pygame.draw.lines(surface, self.color, False, list(self.trail), 1)
 
@@ -62,3 +79,6 @@ class Planet:
             pygame.draw.circle(surface, shade, self.position + offset, dot_radius)
         if self.fixed:
             pygame.draw.circle(surface, WHITE, self.position, self.radius + 3, 1)
+        if self.name and font:
+            label = font.render(self.name, True, WHITE)
+            surface.blit(label, label.get_rect(midtop=(self.position.x, self.position.y + self.radius + 6)))

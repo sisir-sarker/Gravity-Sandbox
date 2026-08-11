@@ -5,31 +5,40 @@ from __future__ import annotations
 import random
 import pygame
 
-from physics import calculate_orbital_velocity, physics_step
+from physics import calculate_orbital_velocity, physics_step, resolve_sun_impacts
 from planet import Planet
 from settings import *
 
 
 def make_sun():
-    return Planet(WIDTH // 2, HEIGHT // 2, 45, SUN_RED, fixed=True)
+    return Planet(WIDTH // 2, HEIGHT // 2, 45, SUN_RED, fixed=True, name="Sun")
 
 
-def make_orbiting_planet(sun, position, radius=12, color=BLUE):
-    planet = Planet(*position, radius, color)
+def make_orbiting_planet(sun, position, radius=12, color=BLUE, name=None):
+    planet = Planet(*position, radius, color, name=name)
     planet.velocity = calculate_orbital_velocity(planet, sun)
     return planet
 
 
 def initial_planets():
     sun = make_sun()
-    return [sun, make_orbiting_planet(sun, (sun.position.x + 250, sun.position.y))]
-
-
-def add_orbit_demo(planets):
-    sun = planets[0]
-    for distance, radius, color in ((150, 8, EARTH_GREEN), (330, 15, MARS), (420, 10, SATURN)):
-        planet = make_orbiting_planet(sun, (sun.position.x + distance, sun.position.y), radius, color)
-        planets.append(planet)
+    solar_system = (
+        ("Mercury", 72, 4, MOON, 15),
+        ("Venus", 105, 6, SATURN, 75),
+        ("Earth", 140, 7, BLUE, 135),
+        ("Mars", 178, 5, MARS, 195),
+        ("Jupiter", 224, 12, JUPITER, 255),
+        ("Saturn", 270, 10, SATURN, 315),
+        ("Uranus", 315, 8, CYAN, 35),
+        ("Neptune", 360, 8, BLUE, 95),
+    )
+    planets = [sun]
+    for name, orbit_radius, radius, color, angle in solar_system:
+        offset = pygame.Vector2(orbit_radius, 0).rotate(angle)
+        planets.append(
+            make_orbiting_planet(sun, sun.position + offset, radius, color, name)
+        )
+    return planets
 
 
 def draw_text(surface, font, text, position):
@@ -81,6 +90,7 @@ def main():
     running = True
     launch_start = None
     speed_multiplier = 1.0
+    custom_planet_index = 1
 
     while running:
         for event in pygame.event.get():
@@ -97,38 +107,43 @@ def main():
                     planets = initial_planets()
                     paused = False
                     launch_start = None
+                    custom_planet_index = 1
                 elif event.key == pygame.K_c:
                     planets = [make_sun()]
                     launch_start = None
+                    custom_planet_index = 1
                 elif event.key == pygame.K_o:
                     planets = initial_planets()
-                    add_orbit_demo(planets)
+                    custom_planet_index = 1
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 launch_start = pygame.Vector2(event.pos)
             elif event.type == pygame.MOUSEBUTTONUP and event.button == 1 and launch_start is not None:
                 sun = planets[0]
                 radius = random.randint(7, 16)
                 color = random.choice(PLANET_COLORS)
+                name = f"Planet X{custom_planet_index}"
                 drag = pygame.Vector2(event.pos) - launch_start
                 if drag.length() < CLICK_DRAG_THRESHOLD:
-                    planets.append(make_orbiting_planet(sun, launch_start, radius, color))
+                    planets.append(make_orbiting_planet(sun, launch_start, radius, color, name))
                 else:
                     velocity = bounded_launch_velocity(
                         sun, launch_start, drag * LAUNCH_VELOCITY_SCALE
                     )
-                    planets.append(Planet(*launch_start, radius, color, velocity))
+                    planets.append(Planet(*launch_start, radius, color, velocity, name=name))
+                custom_planet_index += 1
                 launch_start = None
 
         if not paused:
             physics_step(planets, DT * speed_multiplier)
+            planets = resolve_sun_impacts(planets)
             planets = [planet for planet in planets if planet.fixed or not planet.is_outside_screen()]
 
         screen.fill(BLACK)
         for planet in planets:
-            planet.draw(screen)
+            planet.draw(screen, font)
         if launch_start is not None:
             draw_launch_preview(screen, font, planets[0], launch_start, pygame.mouse.get_pos())
-        draw_text(screen, font, "Drag: launch | Click: circular orbit | +/-: speed | Space: pause | R: reset | O: demo | C: clear", (16, 14))
+        draw_text(screen, font, "Drag: launch | Click: circular orbit | +/-: speed | Space: pause | R/O: solar system | C: clear", (16, 14))
         draw_text(screen, font, f"Speed: {speed_multiplier:g}x | Planet gravity: off", (16, 42))
         if paused:
             draw_text(screen, font, "PAUSED", (16, 66))

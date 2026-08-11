@@ -15,6 +15,7 @@ python main.py
 
 - Click: create a planet in a circular orbit around the fixed sun
 - Click and drag: launch a planet; the drag direction and length set its velocity
+- The starting system includes named Mercury through Neptune; created bodies are named `Planet X1`, `Planet X2`, and so on.
 - Space: pause or resume
 - `+` / `-`: double or halve simulation speed (0.125x to 4x)
 - R: reset the sun and starting planet
@@ -23,4 +24,4 @@ python main.py
 
 ## Notes
 
-Planet mass is proportional to `radius²`. Bodies are rendered as dense fields of small particles. The simulation uses velocity Verlet integration and Sun-only gravity: planets do not attract, collide with, or change each other's paths. A planet shot directly at the Sun follows a continuous path through its softened gravity field instead of bouncing.
+Planet mass is proportional to `radius²`. Bodies are rendered as dense fields of small particles. The simulation uses velocity Verlet integration and Sun-only gravity: planets do not attract or change each other's paths. A body that strikes the Sun is consumed, and its mass and speed determine how much of the Sun's particle surface is destroyed.

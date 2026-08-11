@@ -68,6 +68,23 @@ def physics_step(planets, dt):
             planet.update_trail()
 
 
+def resolve_sun_impacts(planets):
+    """Consume bodies that strike the Sun and visibly damage its particles."""
+    sun = next((planet for planet in planets if planet.fixed), None)
+    if sun is None:
+        return planets
+
+    survivors = [sun]
+    for planet in planets:
+        if planet is sun:
+            continue
+        if (planet.position - sun.position).length() <= sun.radius + planet.radius:
+            sun.absorb_impact(planet)
+        else:
+            survivors.append(planet)
+    return survivors
+
+
 def prevent_planet_overlap(planets):
     """Compatibility no-op; bodies intentionally have no mutual interaction."""
     return None
