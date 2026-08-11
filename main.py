@@ -1,558 +1,142 @@
-import pygame
+"""Run the interactive Gravity Sandbox."""
+
+from __future__ import annotations
+
 import random
-import math
+import pygame
 
-from settings import *
+from physics import calculate_orbital_velocity, physics_step
 from planet import Planet
+from settings import *
 
-from physics import (
-    physics_step,
-    calculate_orbital_velocity
-)
 
+def make_sun():
+    return Planet(WIDTH // 2, HEIGHT // 2, 45, SUN_RED, fixed=True)
 
-# =======================================
-# Pygame Initialization
-# =======================================
 
-pygame.init()
-
-screen = pygame.display.set_mode(
-    (WIDTH, HEIGHT)
-)
-
-pygame.display.set_caption(TITLE)
-
-clock = pygame.time.Clock()
-
-font = pygame.font.SysFont(
-    None,
-    26
-)
-
-big_font = pygame.font.SysFont(
-    None,
-    55
-)
-
-
-# =======================================
-# Planet Colors
-# =======================================
-
-PLANET_COLORS = [
-    BLUE,
-    RED,
-    GREEN,
-    PURPLE,
-    ORANGE,
-    CYAN
-]
-
-
-# =======================================
-# Create Sun
-# =======================================
-
-def create_sun():
-
-    return Planet(
-        WIDTH // 2,
-        HEIGHT // 2,
-        40,
-        YELLOW,
-        fixed=True
-    )
-
-
-# =======================================
-# Find Sun
-# =======================================
-
-def find_sun(planets):
-
-    for planet in planets:
-
-        if planet.fixed:
-            return planet
-
-    return None
-
-
-# =======================================
-# Create Initial Planets
-# =======================================
-
-def create_initial_planets():
-
-    sun = create_sun()
-
-    orbit_radius = 250
-
-    earth = Planet(
-        sun.x + orbit_radius,
-        sun.y,
-        15,
-        BLUE
-    )
-
-    earth.vx, earth.vy = (
-        calculate_orbital_velocity(
-            earth,
-            sun
-        )
-    )
-
-    return [
-        sun,
-        earth
-    ]
-
-
-# =======================================
-# Orbit Demo
-# =======================================
-
-def create_orbit_demo():
-
-    sun = create_sun()
-
-    orbit_radius = 250
-
-    earth = Planet(
-        sun.x + orbit_radius,
-        sun.y,
-        15,
-        BLUE
-    )
-
-    earth.vx, earth.vy = (
-        calculate_orbital_velocity(
-            earth,
-            sun
-        )
-    )
-
-    return [
-        sun,
-        earth
-    ]
-
-
-# =======================================
-# Create Random Orbital Planet
-# =======================================
-
-def create_random_planet(x, y, sun):
-
-    radius = random.randint(
-        8,
-        16
-    )
-
-    planet = Planet(
-        x,
-        y,
-        radius,
-        random.choice(
-            PLANET_COLORS
-        )
-    )
-
-    # ===================================
-    # No Sun Available
-    # ===================================
-
-    if sun is None:
-
-        planet.vx = random.uniform(
-            -20,
-            20
-        )
-
-        planet.vy = random.uniform(
-            -20,
-            20
-        )
-
-        return planet
-
-    # ===================================
-    # Distance From Sun
-    # ===================================
-
-    dx = planet.x - sun.x
-    dy = planet.y - sun.y
-
-    distance = math.sqrt(
-        dx * dx +
-        dy * dy
-    )
-
-    # ===================================
-    # Minimum Safe Distance
-    # ===================================
-
-    minimum_distance = (
-        sun.radius +
-        radius +
-        60
-    )
-
-    # ===================================
-    # Too Close To Sun
-    # ===================================
-
-    if distance < minimum_distance:
-
-        if distance > 0:
-
-            direction_x = dx / distance
-            direction_y = dy / distance
-
-        else:
-
-            direction_x = 1.0
-            direction_y = 0.0
-
-        planet.x = (
-            sun.x +
-            direction_x *
-            minimum_distance
-        )
-
-        planet.y = (
-            sun.y +
-            direction_y *
-            minimum_distance
-        )
-
-    # ===================================
-    # Calculate Orbital Velocity
-    # ===================================
-
-    planet.vx, planet.vy = (
-        calculate_orbital_velocity(
-            planet,
-            sun
-        )
-    )
-
+def make_orbiting_planet(sun, position, radius=12, color=BLUE):
+    planet = Planet(*position, radius, color)
+    planet.velocity = calculate_orbital_velocity(planet, sun)
     return planet
 
 
-# =======================================
-# Prevent Planet Overlap
-# =======================================
-
-def prevent_planet_overlap(planets):
-
-    for i in range(len(planets)):
-
-        for j in range(
-            i + 1,
-            len(planets)
-        ):
-
-            planet1 = planets[i]
-            planet2 = planets[j]
-
-            # Ignore Sun
-            if (
-                planet1.fixed
-                or
-                planet2.fixed
-            ):
-                continue
-
-            dx = planet2.x - planet1.x
-            dy = planet2.y - planet1.y
-
-            distance = math.sqrt(
-                dx * dx +
-                dy * dy
-            )
-
-            minimum_distance = (
-                planet1.radius +
-                planet2.radius +
-                10
-            )
-
-            # Prevent overlap
-            if (
-                distance > 0
-                and
-                distance < minimum_distance
-            ):
-
-                nx = dx / distance
-                ny = dy / distance
-
-                push_distance = (
-                    minimum_distance -
-                    distance
-                )
-
-                planet1.x -= (
-                    nx *
-                    push_distance *
-                    0.5
-                )
-
-                planet1.y -= (
-                    ny *
-                    push_distance *
-                    0.5
-                )
-
-                planet2.x += (
-                    nx *
-                    push_distance *
-                    0.5
-                )
-
-                planet2.y += (
-                    ny *
-                    push_distance *
-                    0.5
-                )
-
-
-# =======================================
-# Initial Scene
-# =======================================
-
-planets = create_initial_planets()
-
-paused = False
-
-running = True
-
-
-# =======================================
-# Main Loop
-# =======================================
-
-while running:
-
-    clock.tick(FPS)
-
-    # ===================================
-    # Events
-    # ===================================
-
-    for event in pygame.event.get():
-
-        # --------------------------------
-        # Quit
-        # --------------------------------
-
-        if event.type == pygame.QUIT:
-
-            running = False
-
-        # --------------------------------
-        # Keyboard
-        # --------------------------------
-
-        elif event.type == pygame.KEYDOWN:
-
-            # Pause / Resume
-            if event.key == pygame.K_SPACE:
-
-                paused = not paused
-
-            # Reset
-            elif event.key == pygame.K_r:
-
-                planets = create_initial_planets()
-
-                paused = False
-
-            # Orbit Demo
-            elif event.key == pygame.K_o:
-
-                planets = create_orbit_demo()
-
-                paused = False
-
-            # Clear
-            elif event.key == pygame.K_c:
-
-                planets = []
-
-        # --------------------------------
-        # Mouse
-        # --------------------------------
-
-        elif (
-            event.type == pygame.MOUSEBUTTONDOWN
-            and not paused
-        ):
-
-            x, y = pygame.mouse.get_pos()
-
-            sun = find_sun(planets)
-
-            new_planet = create_random_planet(
-                x,
-                y,
-                sun
-            )
-
-            planets.append(
-                new_planet
-            )
-
-    # ===================================
-    # Physics
-    # ===================================
-
-    if not paused:
-
-        # --------------------------------
-        # Gravity
-        # --------------------------------
-
-        physics_step(
-            planets
-        )
-
-        # --------------------------------
-        # Prevent Planet-Planet Overlap
-        # --------------------------------
-
-        prevent_planet_overlap(
-            planets
-        )
-
-        # --------------------------------
-        # Remove Escaped Planets
-        # --------------------------------
-
-        planets = [
-            planet
-            for planet in planets
-            if (
-                planet.fixed
-                or
-                not planet.is_outside_screen()
-            )
-        ]
-
-    # ===================================
-    # Drawing
-    # ===================================
-
-    screen.fill(BLACK)
-
-    # Draw all planets
-    for planet in planets:
-
-        planet.draw(screen)
-
-    # ===================================
-    # FPS
-    # ===================================
-
-    fps_text = font.render(
-        f"FPS: {int(clock.get_fps())}",
-        True,
-        WHITE
-    )
-
-    screen.blit(
-        fps_text,
-        (10, 10)
-    )
-
-    # ===================================
-    # Planet Count
-    # ===================================
-
-    planet_text = font.render(
-        f"Planets: {len(planets)}",
-        True,
-        WHITE
-    )
-
-    screen.blit(
-        planet_text,
-        (10, 40)
-    )
-
-    # ===================================
-    # Status
-    # ===================================
-
-    status = (
-        "PAUSED"
-        if paused
-        else
-        "RUNNING"
-    )
-
-    status_text = font.render(
-        f"Status: {status}",
-        True,
-        WHITE
-    )
-
-    screen.blit(
-        status_text,
-        (10, 70)
-    )
-
-    # ===================================
-    # Controls
-    # ===================================
-
-    controls_text = font.render(
-        "SPACE: Pause | R: Reset | "
-        "O: Orbit | C: Clear | Mouse: Planet",
-        True,
-        WHITE
-    )
-
-    screen.blit(
-        controls_text,
-        (
-            10,
-            HEIGHT - 30
-        )
-    )
-
-    # ===================================
-    # Pause Message
-    # ===================================
-
-    if paused:
-
-        pause_text = big_font.render(
-            "PAUSED",
-            True,
-            WHITE
-        )
-
-        screen.blit(
-            pause_text,
-            (
-                WIDTH // 2 -
-                pause_text.get_width() // 2,
-                40
-            )
-        )
-
-    # ===================================
-    # Update Display
-    # ===================================
-
-    pygame.display.flip()
-
-
-# =======================================
-# Quit
-# =======================================
-
-pygame.quit()
+def initial_planets():
+    sun = make_sun()
+    return [sun, make_orbiting_planet(sun, (sun.position.x + 250, sun.position.y))]
+
+
+def add_orbit_demo(planets):
+    sun = planets[0]
+    for distance, radius, color in ((150, 8, EARTH_GREEN), (330, 15, MARS), (420, 10, SATURN)):
+        planet = make_orbiting_planet(sun, (sun.position.x + distance, sun.position.y), radius, color)
+        planets.append(planet)
+
+
+def draw_text(surface, font, text, position):
+    surface.blit(font.render(text, True, WHITE), position)
+
+
+def draw_arrow(surface, start, end, color=WHITE):
+    """Draw a velocity vector with a small arrow head."""
+    start, end = pygame.Vector2(start), pygame.Vector2(end)
+    vector = end - start
+    if vector.length() < 1:
+        return
+    pygame.draw.line(surface, color, start, end, 2)
+    direction = vector.normalize()
+    left = end - direction.rotate(28) * 11
+    right = end - direction.rotate(-28) * 11
+    pygame.draw.polygon(surface, color, [end, left, right])
+
+
+def draw_launch_preview(surface, font, sun, start, mouse_position):
+    """Show the predicted launch body, velocity vector, and circular guide."""
+    distance = (start - sun.position).length()
+    if distance > sun.radius + 5:
+        pygame.draw.circle(surface, (115, 55, 70), sun.position, int(distance), 1)
+    pygame.draw.circle(surface, CYAN, start, 10, 1)
+    draw_arrow(surface, start, mouse_position, CYAN)
+    velocity = (mouse_position - start) * LAUNCH_VELOCITY_SCALE
+    draw_text(surface, font, f"Launch velocity: {velocity.length():.1f}", (16, 42))
+
+
+def bounded_launch_velocity(sun, position, requested_velocity):
+    """Keep manual launches gravitationally bound to the sun by default."""
+    probe = Planet(*position, 10, BLUE)
+    circular_speed = calculate_orbital_velocity(probe, sun).length()
+    maximum_speed = circular_speed * MAX_LAUNCH_SPEED_MULTIPLIER
+    if requested_velocity.length() > maximum_speed:
+        return requested_velocity.normalize() * maximum_speed
+    return requested_velocity
+
+
+def main():
+    pygame.init()
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    pygame.display.set_caption(TITLE)
+    clock = pygame.time.Clock()
+    font = pygame.font.Font(None, 24)
+    planets = initial_planets()
+    paused = False
+    running = True
+    launch_start = None
+    speed_multiplier = 1.0
+
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    paused = not paused
+                elif event.key in (pygame.K_EQUALS, pygame.K_PLUS, pygame.K_KP_PLUS):
+                    speed_multiplier = min(4.0, speed_multiplier * 2)
+                elif event.key in (pygame.K_MINUS, pygame.K_KP_MINUS):
+                    speed_multiplier = max(0.125, speed_multiplier / 2)
+                elif event.key == pygame.K_r:
+                    planets = initial_planets()
+                    paused = False
+                    launch_start = None
+                elif event.key == pygame.K_c:
+                    planets = [make_sun()]
+                    launch_start = None
+                elif event.key == pygame.K_o:
+                    planets = initial_planets()
+                    add_orbit_demo(planets)
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                launch_start = pygame.Vector2(event.pos)
+            elif event.type == pygame.MOUSEBUTTONUP and event.button == 1 and launch_start is not None:
+                sun = planets[0]
+                radius = random.randint(7, 16)
+                color = random.choice(PLANET_COLORS)
+                drag = pygame.Vector2(event.pos) - launch_start
+                if drag.length() < CLICK_DRAG_THRESHOLD:
+                    planets.append(make_orbiting_planet(sun, launch_start, radius, color))
+                else:
+                    velocity = bounded_launch_velocity(
+                        sun, launch_start, drag * LAUNCH_VELOCITY_SCALE
+                    )
+                    planets.append(Planet(*launch_start, radius, color, velocity))
+                launch_start = None
+
+        if not paused:
+            physics_step(planets, DT * speed_multiplier)
+            planets = [planet for planet in planets if planet.fixed or not planet.is_outside_screen()]
+
+        screen.fill(BLACK)
+        for planet in planets:
+            planet.draw(screen)
+        if launch_start is not None:
+            draw_launch_preview(screen, font, planets[0], launch_start, pygame.mouse.get_pos())
+        draw_text(screen, font, "Drag: launch | Click: circular orbit | +/-: speed | Space: pause | R: reset | O: demo | C: clear", (16, 14))
+        draw_text(screen, font, f"Speed: {speed_multiplier:g}x | Planet gravity: off", (16, 42))
+        if paused:
+            draw_text(screen, font, "PAUSED", (16, 66))
+        pygame.display.flip()
+        clock.tick(FPS)
+
+    pygame.quit()
+
+
+if __name__ == "__main__":
+    main()

@@ -1,46 +1,29 @@
-# =======================================
-# Window Settings
-# =======================================
+"""Shared configuration for the Gravity Sandbox."""
 
 WIDTH = 1200
 HEIGHT = 800
-
 TITLE = "Gravity Sandbox"
-
 FPS = 60
-
 DT = 1 / FPS
 
-# =======================================
-# Physics Settings
-# =======================================
-
-# Gravitational constant used by
-# our simulation.
-G = 20
-
-# Prevents extreme gravity at very
-# small distances.
-SOFTENING = 20
-
+# Simulation values are deliberately screen-scale rather than real-world units.
+G = 1200.0
+SOFTENING = 20.0
 TIME_SCALE = 1.0
+LAUNCH_VELOCITY_SCALE = 0.60
+CLICK_DRAG_THRESHOLD = 5
+MAX_LAUNCH_SPEED_MULTIPLIER = 0.85
 
-# Make the Sun much more massive
-# than normal planets.
-SUN_MASS_MULTIPLIER = 50
+BLACK = (7, 10, 20)
+WHITE = (240, 244, 255)
+SUN_RED = (255, 70, 28)
+SUN_CORE = (255, 145, 45)
+BLUE = (64, 126, 204)          # Earth ocean
+EARTH_GREEN = (76, 150, 96)    # Earth land
+MARS = (184, 83, 55)
+JUPITER = (196, 133, 91)
+SATURN = (220, 198, 143)
+MOON = (157, 165, 176)
+CYAN = (80, 190, 205)
 
-# =======================================
-# Colors
-# =======================================
-
-BLACK = (0, 0, 0)
-WHITE = (255, 255, 255)
-
-YELLOW = (255, 220, 0)
-BLUE = (80, 170, 255)
-
-RED = (255, 100, 100)
-GREEN = (100, 255, 100)
-PURPLE = (200, 100, 255)
-ORANGE = (255, 170, 50)
-CYAN = (80, 220, 255)
+PLANET_COLORS = (BLUE, EARTH_GREEN, MARS, JUPITER, SATURN, MOON, CYAN)
