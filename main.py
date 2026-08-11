@@ -5,6 +5,7 @@ from __future__ import annotations
 import random
 import pygame
 
+from explosion import Explosion
 from physics import calculate_orbital_velocity, physics_step, resolve_sun_impacts
 from planet import Planet
 from settings import *
@@ -81,7 +82,9 @@ def bounded_launch_velocity(sun, position, requested_velocity):
 
 def main():
     pygame.init()
-    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    fullscreen = START_FULLSCREEN
+    display_flags = pygame.FULLSCREEN | pygame.SCALED if fullscreen else 0
+    screen = pygame.display.set_mode((WIDTH, HEIGHT), display_flags)
     pygame.display.set_caption(TITLE)
     clock = pygame.time.Clock()
     font = pygame.font.Font(None, 24)
@@ -91,6 +94,7 @@ def main():
     launch_start = None
     speed_multiplier = 1.0
     custom_planet_index = 1
+    explosions = []
 
     while running:
         for event in pygame.event.get():
@@ -103,6 +107,10 @@ def main():
                     speed_multiplier = min(4.0, speed_multiplier * 2)
                 elif event.key in (pygame.K_MINUS, pygame.K_KP_MINUS):
                     speed_multiplier = max(0.125, speed_multiplier / 2)
+                elif event.key == pygame.K_f:
+                    fullscreen = not fullscreen
+                    display_flags = pygame.FULLSCREEN | pygame.SCALED if fullscreen else 0
+                    screen = pygame.display.set_mode((WIDTH, HEIGHT), display_flags)
                 elif event.key == pygame.K_r:
                     planets = initial_planets()
                     paused = False
@@ -135,15 +143,21 @@ def main():
 
         if not paused:
             physics_step(planets, DT * speed_multiplier)
-            planets = resolve_sun_impacts(planets)
+            planets, impacts = resolve_sun_impacts(planets)
+            explosions.extend(Explosion(**impact) for impact in impacts)
             planets = [planet for planet in planets if planet.fixed or not planet.is_outside_screen()]
+            for explosion in explosions:
+                explosion.update(DT * speed_multiplier)
+            explosions = [explosion for explosion in explosions if explosion.alive]
 
         screen.fill(BLACK)
         for planet in planets:
             planet.draw(screen, font)
+        for explosion in explosions:
+            explosion.draw(screen)
         if launch_start is not None:
             draw_launch_preview(screen, font, planets[0], launch_start, pygame.mouse.get_pos())
-        draw_text(screen, font, "Drag: launch | Click: circular orbit | +/-: speed | Space: pause | R/O: solar system | C: clear", (16, 14))
+        draw_text(screen, font, "Drag: launch | Click: circular orbit | +/-: speed | F: fullscreen | Space: pause | R/O: solar system | C: clear", (16, 14))
         draw_text(screen, font, f"Speed: {speed_multiplier:g}x | Planet gravity: off", (16, 42))
         if paused:
             draw_text(screen, font, "PAUSED", (16, 66))

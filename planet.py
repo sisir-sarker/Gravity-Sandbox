@@ -47,19 +47,28 @@ class Planet:
         )
 
     def absorb_impact(self, projectile):
-        """Remove an impact-sized section of a fixed particle body."""
+        """Remove an impact-sized section and return blast information."""
         if not self.fixed or not self.surface_particles:
-            return
+            return None
         mass_ratio = projectile.mass / self.mass
         damage = min(0.60, 0.035 + mass_ratio * 1.20 + projectile.velocity.length() / 3000)
         removed_count = max(1, int(len(self.surface_particles) * damage))
-        impact_point = (projectile.position - self.position).normalize() * self.radius
+        direction = projectile.position - self.position
+        if direction.length_squared() == 0:
+            direction = pygame.Vector2(1, 0)
+        direction = direction.normalize()
+        impact_point = direction * self.radius
         self.surface_particles.sort(key=lambda particle: particle[0].distance_to(impact_point))
         del self.surface_particles[:removed_count]
 
         remaining_ratio = len(self.surface_particles) / self.initial_particle_count
         self.mass = max(1.0, self.mass * remaining_ratio)
         self.radius = max(12, int(self.radius * (0.82 + 0.18 * remaining_ratio)))
+        return {
+            "position": self.position + impact_point,
+            "direction": direction,
+            "strength": damage,
+        }
 
     def draw(self, surface, font=None):
         if len(self.trail) > 1:

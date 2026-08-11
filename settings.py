@@ -5,6 +5,7 @@ HEIGHT = 800
 TITLE = "Gravity Sandbox"
 FPS = 60
 DT = 1 / FPS
+START_FULLSCREEN = True
 
 # Simulation values are deliberately screen-scale rather than real-world units.
 G = 1200.0

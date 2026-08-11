@@ -72,17 +72,20 @@ def resolve_sun_impacts(planets):
     """Consume bodies that strike the Sun and visibly damage its particles."""
     sun = next((planet for planet in planets if planet.fixed), None)
     if sun is None:
-        return planets
+        return planets, []
 
     survivors = [sun]
+    impacts = []
     for planet in planets:
         if planet is sun:
             continue
         if (planet.position - sun.position).length() <= sun.radius + planet.radius:
-            sun.absorb_impact(planet)
+            impact = sun.absorb_impact(planet)
+            if impact:
+                impacts.append(impact)
         else:
             survivors.append(planet)
-    return survivors
+    return survivors, impacts
 
 
 def prevent_planet_overlap(planets):
